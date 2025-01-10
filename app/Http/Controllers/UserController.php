@@ -42,6 +42,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:50',
             'email' => 'required|string|email|max:50|unique:users',
+            'nik' => 'nullable|string|max:10|unique:users',
             'role' => 'required|in:admin,user,headOffice',
             'unit' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:150',
@@ -55,7 +56,8 @@ class UserController extends Controller
 
         // Handle photo upload
         if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('photos/users', 'public');
+            $photoName = $request->name . '.' . $request->file('photo')->getClientOriginalExtension();
+            $data['photo'] = $request->file('photo')->storeAs('photos/users', $photoName, 'public');
         }
 
         User::create($data);
@@ -81,6 +83,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:50',
             'email' => 'required|string|email|max:50|unique:users,email,' . $user->id,
+            'nik' => 'nullable|string|max:10|unique:users,nik,' . $user->id,
             'role' => 'required|in:admin,user,headOffice',
             'unit' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:150',

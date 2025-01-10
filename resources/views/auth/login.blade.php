@@ -1,5 +1,6 @@
 @php
     use Illuminate\Support\Facades\Route;
+    use Illuminate\Support\Facades\Log;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -24,6 +25,9 @@
 
     <!-- Main CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging.js"></script>
 
     <style>
         /* Menyesuaikan ukuran logo */
@@ -75,12 +79,42 @@
                         <div class="form-login">
                             <button type="submit" class="btn btn-login">Sign In</button>
                         </div>
+                        <input type="hidden" name="fcm_token" id="fcm_token">
                     </form>
                 </div>
             </div>
             <div class="login-img">
                 <img src="{{ asset('assets/img/login.jpg') }}" alt="Login Image">
             </div>
+            <script>
+                import { initializeApp } from "firebase/app";
+                import { getMessaging } from "firebase/messaging";
+
+                const firebaseConfig = {
+                apiKey: "AIzaSyDfxFLhCmscfY1piRHL2bs_9qzXMRqZfqM",
+                authDomain: "inventara-backend-notification.firebaseapp.com",
+                projectId: "inventara-backend-notification",
+                storageBucket: "inventara-backend-notification.firebasestorage.app",
+                messagingSenderId: "281401742100",
+                appId: "1:281401742100:web:8ff64dc5d4c53f66fea801",
+                measurementId: "G-3EJ0Z9XY0K"
+                };
+
+                const app = initializeApp(firebaseConfig);
+                export const messaging = getMessaging(app);
+
+                console.log('VAPID_KEY:', $_ENV("VAPID_KEY"));
+
+                messaging.getToken({ vapidKey: $_ENV("VAPID_KEY") }).then((currentToken) => {
+                    if (currentToken) {
+                        document.getElementById('fcm_token').value = currentToken;
+                    } else {
+                        console.log('No registration token available. Request permission to generate one.');
+                    }
+                }).catch((err) => {
+                    console.log('An error occurred while retrieving token. ', err);
+                });
+            </script>
         </div>
     </div>
 </div>
@@ -96,5 +130,6 @@
 
 <!-- Custom JS -->
 <script src="{{ asset('assets/js/script.js') }}"></script>
+
 </body>
 </html>

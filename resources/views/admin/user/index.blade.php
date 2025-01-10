@@ -114,6 +114,7 @@
                                 <th>Foto</th>
                                 <th>Nama</th>
                                 <th>Email</th>
+                                <th>NIK</th>
                                 <th>Role</th>
                                 <th>Unit</th>
                                 <th>Alamat</th>
@@ -136,6 +137,7 @@
                                     </td>
                                     <td>{{ $user->name }}</td>
                                     <td>{{ $user->email }}</td>
+                                    <td>{{ $user->nik }}</td>
                                     <td>{{ $user->role }}</td>
                                     <td>{{ $user->unit }}</td>
                                     <td>{{ $user->address }}</td>

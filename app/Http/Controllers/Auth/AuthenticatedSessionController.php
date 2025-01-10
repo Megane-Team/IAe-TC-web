@@ -31,17 +31,21 @@ class AuthenticatedSessionController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
+            'fcm_token' => 'required|string', 
         ]);
 
+        // make a log for fcm_token 
+
         $credentials = $request->only('email', 'password');
+        $fcmToken = $request->input('fcm_token');
 
         if (Auth::attempt($credentials)) {
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post('http://192.168.99.43:3000/users/login', [
+            ])->post(env('API_URL') . '/users/login', [
                 'email' => $request->input('email'),
                 'password' => $request->input('password'),
-                'deviceToken' => 'your_device_token'
+                'deviceToken' => $fcmToken,
             ]);
 
             if ($response->successful()) {
@@ -51,37 +55,15 @@ class AuthenticatedSessionController extends Controller
                 } elseif ($user->role == 'headOffice') {
                     return redirect(route('headoffice.dashboard'));
                 }
-            } 
+            } else {
+                return back()->withErrors([
+                    'email' => 'Email atau password salah'
+                ]);
+            }
         }
-
         return back()->withErrors([
             'email' => 'Anda bukan admin'
         ]);
-
-
-        // $request->authenticate();
-
-        // $request->session()->regenerate();
-
-        // $request->validate([
-        //     'email' => 'required|email',
-        //     'password' => 'required',
-        // ]);
-
-        // // Mencoba autentikasi pengguna
-        // $credentials = $request->only('email', 'password');
-        // if (Auth::attempt($credentials)) {
-        //     // Jika autentikasi berhasil, periksa peran pengguna
-        //     $user = Auth::user();
-        //     if ($user->role == 'admin') {
-        //         return redirect(route('admin.dashboard'));
-        //     } elseif ($user->role == 'headOffice') {
-        //         return redirect(route('headoffice.dashboard')); // Pastikan rute ini sudah ada
-        //     } 
-
-        // }
-
-        // return redirect()->intended(route('dashboard', absolute: false));
     }
 
     /**

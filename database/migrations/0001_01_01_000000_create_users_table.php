@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->text('name');
             $table->text('email')->unique();
+            $table->text('nik')->unique()->nullable();
             $table->enum('role', ['admin', 'user', 'headOffice']);
             $table->text('unit')->nullable();
             $table->text('address')->nullable();

@@ -33,6 +33,16 @@
                                 <label>Email</label>
                                 <input type="email" name="email" class="form-control" value="{{ $user->email }}"
                                     required>
+                                @error('email')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="form-group">
+                                <label>NIK</label>
+                                <input type="text" name="nik" class="form-control" value="{{ $user->nik }}">
+                                @error('nik')
+                                    <span class="text-danger">{{ $message }}</span>
+                                @enderror
                             </div>
                             <div class="form-group">
                                 <label>Password</label>

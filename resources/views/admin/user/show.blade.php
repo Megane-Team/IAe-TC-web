@@ -38,6 +38,10 @@
                                     <h6>{{ $user->email }}</h6>
                                 </li>
                                 <li>
+                                    <h4>NIK</h4>
+                                    <h6>{{ $user->nik }}</h6>
+                                </li>
+                                <li>
                                     <h4>Role</h4>
                                     <h6>{{ $user->role }}</h6>
                                 </li>

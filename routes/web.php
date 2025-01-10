@@ -12,6 +12,7 @@ use App\Http\Controllers\LogController;
 use App\Http\Controllers\PeminjamanController;
 use App\Http\Controllers\BarangController;
 use App\Http\Controllers\DetailPeminjamanController;
+use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -22,6 +23,14 @@ use Illuminate\Support\Facades\Auth;
 Route::get('/', function () {
    return redirect()->route('login');
 });
+
+Route::get('/api', function () {  
+    return response()->json([
+        'message' => 'Welcome to the API',
+        'status' => 'Connected'
+    ]);
+});
+Route::get('/api/checkstatus' , [ApiController::class, 'checkStatus']);
 
 Route::post('/login', [AuthenticatedSessionController::class, 'store'])->name('login');
 

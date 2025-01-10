@@ -16,8 +16,6 @@
                     </a>
                     <ul>
                         <li><a href="{{ route('tempat.index') }}">List Tempat</a></li>
-                        <li><a hrefhref="{{ route('tempat.gedung') }}">List Gedung</a></li>
-                        <li><a href="{{ route('tempat.parkiran') }}">List Parkiran</a></li>
                         <li><a href="{{ route('tempat.import') }}">Import Tempat</a></li>
                     </ul>
                 </li>

@@ -35,6 +35,15 @@
                         </div>
                         <div class="col-lg-6 col-sm-12">
                             <div class="form-group">
+                                <label>NIK</label>
+                                <input type="text" name="nik" class="form-control">
+                                @error('nik')
+                                    <span class="text-red-500 text-sm">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="col-lg-6 col-sm-12">
+                            <div class="form-group">
                                 <label>Unit</label>
                                 <input type="text" name="unit" class="form-control">
                                 @error('unit')

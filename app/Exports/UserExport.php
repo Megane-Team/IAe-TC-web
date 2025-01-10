@@ -29,6 +29,7 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'nik' => $user->nik,
                 'role' => ucfirst($user->role),
                 'unit' => $user->unit,
                 'address' => $user->address,
@@ -44,7 +45,7 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
      */
     public function headings(): array
     {
-        return ['ID', 'Name', 'Email', 'Role', 'Unit', 'Address', 'Phone Number', 'Photo', 'Photo URL'];
+        return ['ID', 'Name', 'Email', 'NIK', 'Role', 'Unit', 'Address', 'Phone Number', 'Photo', 'Photo URL'];
     }
 
     /**
@@ -63,7 +64,7 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
                 $drawing->setHeight(80);
                 $drawing->setWidth(80);
                 $drawing->setResizeProportional(true);
-                $drawing->setCoordinates('H' . ($index + 2)); // Kolom 'H' untuk Photo
+                $drawing->setCoordinates('I' . ($index + 2)); // Kolom 'H' untuk Photo
                 $drawings[] = $drawing;
             }
         }
@@ -79,16 +80,17 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
         // Menyesuaikan lebar kolom
         $sheet->getColumnDimension('A')->setAutoSize(true); // ID
         $sheet->getColumnDimension('B')->setAutoSize(true); // Name
-        $sheet->getColumnDimension('C')->setAutoSize(true); // Email
-        $sheet->getColumnDimension('D')->setAutoSize(true); // Role
-        $sheet->getColumnDimension('E')->setAutoSize(true); // Unit
-        $sheet->getColumnDimension('F')->setAutoSize(true); // Address
-        $sheet->getColumnDimension('G')->setAutoSize(true); // Phone Number
-        $sheet->getColumnDimension('H')->setWidth(15);      // Photo
-        $sheet->getColumnDimension('I')->setWidth(50);      // Photo URL
+        $sheet->getColumnDimension('B')->setAutoSize(true); // NIK
+        $sheet->getColumnDimension('D')->setAutoSize(true); // Email
+        $sheet->getColumnDimension('E')->setAutoSize(true); // Role
+        $sheet->getColumnDimension('F')->setAutoSize(true); // Unit
+        $sheet->getColumnDimension('G')->setAutoSize(true); // Address
+        $sheet->getColumnDimension('H')->setAutoSize(true); // Phone Number
+        $sheet->getColumnDimension('I')->setWidth(15);      // Photo
+        $sheet->getColumnDimension('J')->setWidth(50);      // Photo URL
 
         // Menambahkan gaya pada header
-        $sheet->getStyle('A1:I1')->applyFromArray([
+        $sheet->getStyle('A1:J1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'size' => 12,
@@ -106,7 +108,7 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
 
         // Menambahkan gaya pada seluruh data
         $rowCount = $this->users->count() + 1;
-        $sheet->getStyle("A2:I$rowCount")->applyFromArray([
+        $sheet->getStyle("A2:J$rowCount")->applyFromArray([
             'alignment' => [
                 'horizontal' => 'center',
                 'vertical' => 'center',
@@ -119,7 +121,7 @@ class UserExport implements FromCollection, WithHeadings, WithDrawings, WithStyl
         ]);
 
         // Mengaktifkan opsi Wrap Text pada kolom Photo URL
-        $sheet->getStyle("I2:I$rowCount")->getAlignment()->setWrapText(true);
+        $sheet->getStyle("J2:J$rowCount")->getAlignment()->setWrapText(true);
 
         // Menyesuaikan tinggi baris untuk gambar
         foreach (range(2, $rowCount) as $row) {
