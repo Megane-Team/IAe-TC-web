@@ -26,7 +26,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        // make a log about the request
+        Log::info('Request: ' . $request);
 
         $request->validate([
             'email' => 'required|email',
@@ -34,15 +35,24 @@ class AuthenticatedSessionController extends Controller
             'fcm_token' => 'required|string', 
         ]);
 
-        // make a log for fcm_token 
-
         $credentials = $request->only('email', 'password');
+        // make a log for credentials
+        Log::info('Credentials: ' . json_encode($credentials));
+        
         $fcmToken = $request->input('fcm_token');
+        // make a log for fcmToken
+        Log::info('FCM Token: ' . $fcmToken);
 
         if (Auth::attempt($credentials)) {
+            Log::info('auth accepted');
+
+            $apiUrl = config('app.api_url');
+            // make a log for apiUrl
+            Log::info('API URL: ' . $apiUrl . '/users/login');
+
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
-            ])->post(env('API_URL') . '/users/login', [
+            ])->post($apiUrl . '/users/login', [
                 'email' => $request->input('email'),
                 'password' => $request->input('password'),
                 'deviceToken' => $fcmToken,
@@ -56,12 +66,15 @@ class AuthenticatedSessionController extends Controller
                     return redirect(route('headoffice.dashboard'));
                 }
             } else {
-                return back()->withErrors([
+                Log::info('auth not accepted');
+
+                return redirect()->route('login')->withErrors([
                     'email' => 'Email atau password salah'
                 ]);
             }
         }
-        return back()->withErrors([
+
+        return redirect()->route('login')->withErrors([
             'email' => 'Anda bukan admin'
         ]);
     }

@@ -26,9 +26,6 @@
     <!-- Main CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
 
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging.js"></script>
-
     <style>
         /* Menyesuaikan ukuran logo */
         .login-logo img {
@@ -86,33 +83,48 @@
             <div class="login-img">
                 <img src="{{ asset('assets/img/login.jpg') }}" alt="Login Image">
             </div>
-            <script>
-                import { initializeApp } from "firebase/app";
-                import { getMessaging } from "firebase/messaging";
-
+            <script type="module">
+                import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js";
+                import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/9.1.3/firebase-messaging.js";
+                // Firebase configuration
                 const firebaseConfig = {
-                apiKey: "AIzaSyDfxFLhCmscfY1piRHL2bs_9qzXMRqZfqM",
-                authDomain: "inventara-backend-notification.firebaseapp.com",
-                projectId: "inventara-backend-notification",
-                storageBucket: "inventara-backend-notification.firebasestorage.app",
-                messagingSenderId: "281401742100",
-                appId: "1:281401742100:web:8ff64dc5d4c53f66fea801",
-                measurementId: "G-3EJ0Z9XY0K"
+                    apiKey: "AIzaSyDfxFLhCmscfY1piRHL2bs_9qzXMRqZfqM",
+                    authDomain: "inventara-backend-notification.firebaseapp.com",
+                    projectId: "inventara-backend-notification",
+                    storageBucket: "inventara-backend-notification.firebasestorage.app",
+                    messagingSenderId: "281401742100",
+                    appId: "1:281401742100:web:8ff64dc5d4c53f66fea801",
+                    measurementId: "G-3EJ0Z9XY0K"
                 };
 
+                // Initialize Firebase
                 const app = initializeApp(firebaseConfig);
-                export const messaging = getMessaging(app);
+                const messaging = getMessaging(app);
 
-                console.log('VAPID_KEY:', $_ENV("VAPID_KEY"));
+                // Get VAPID key from .env file
+                const vapidKey = "{{ config('app.vapid_key') }}";
 
-                messaging.getToken({ vapidKey: $_ENV("VAPID_KEY") }).then((currentToken) => {
-                    if (currentToken) {
-                        document.getElementById('fcm_token').value = currentToken;
+                // Request permission and get token
+                Notification.requestPermission().then((permission) => {
+                    if (permission === 'granted') {
+                        getToken(messaging, { vapidKey: vapidKey }).then((currentToken) => {
+                            if (currentToken) {
+                                // Set the FCM token to the hidden input field
+                                document.getElementById('fcm_token').value = currentToken;
+                            } else {
+                                console.log('No registration token available. Request permission to generate one.');
+                            }
+                        }).catch((err) => {
+                            console.log('An error occurred while retrieving token. ', err);
+                            alert('Error saat mengambil data, tolong refresh halaman ini!.');
+                        });
+                    } else if (permission === 'denied') {
+                        console.log('Notification permission denied.');
                     } else {
-                        console.log('No registration token available. Request permission to generate one.');
+                        console.log('Notification permission not granted.');
                     }
                 }).catch((err) => {
-                    console.log('An error occurred while retrieving token. ', err);
+                    console.log('An error occurred while requesting notification permission. ', err);
                 });
             </script>
         </div>

@@ -15,6 +15,7 @@ use App\Http\Controllers\DetailPeminjamanController;
 use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use SebastianBergmann\CodeCoverage\Report\Html\Dashboard;
 
 // Route::get('/', function () {
 //    return view('welcome');
@@ -40,7 +41,6 @@ Route::post('/logout', function () {
     request()->session()->regenerateToken();
     return redirect('/login')->with('success', 'Anda berhasil logout.');
 })->name('logout');
-
 
 Route::middleware('auth', )->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

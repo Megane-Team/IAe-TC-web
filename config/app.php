@@ -123,4 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'vapid_key' => env('VAPID_KEY'),
+
+    'api_url' => env('API_URL'),
 ];
