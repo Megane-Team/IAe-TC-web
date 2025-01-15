@@ -28,16 +28,6 @@
 
                         <div class="col-lg-3 col-sm-6 col-12">
                             <div class="form-group">
-                                <label>Kode Barang</label>
-                                <input type="text" name="code" id="code" class="form-control" required>
-                                @error('code')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <div class="col-lg-3 col-sm-6 col-12">
-                            <div class="form-group">
                                 <label>Status</label>
                                 <select name="status" id="status" class="select" required>
                                     <option value="" disabled selected>Pilih Status</option>
@@ -93,6 +83,12 @@
                                 @error('ruangan_id')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
                                 @enderror
+                            </div>
+                        </div>
+
+                        <div class="col-lg-3 col-sm-6 col-12">
+                            <div class="form-group">
+                                <input type="hidden" name="code" id="code" value="{{ (string) Str::uuid() }}">
                             </div>
                         </div>
 
