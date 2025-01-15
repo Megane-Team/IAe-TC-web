@@ -7,6 +7,7 @@ use App\Models\Tempat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\RuanganExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -58,15 +59,52 @@ class RuanganController extends Controller
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        $data = $request->all();
+        // make a post request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/ruangans', [
+            [
+            'name'     => 'code',
+            'contents' => $request->input('code')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'capacity',
+            'contents' => $request->input('capacity')
+            ],
+            [
+            'name'     => 'category',
+            'contents' => $request->input('category')
+            ],
+            [
+            'name'     => 'tempat_name',
+            'contents' => Tempat::find($request->input('tempat_id'))->name
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            $data = $request->all();
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
             $data['photo'] = $request->file('photo')->store('photos/ruangan', 'public');
-        }
+            }
 
-        Ruangan::create($data);
-        return redirect()->route('ruangan.index')->with('success', 'Ruangan berhasil ditambahkan.');
+            Ruangan::create($data);
+            return redirect()->route('ruangan.index')->with('success', 'Ruangan berhasil ditambahkan.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menambahkan ruangan. Silakan coba lagi.');
+        }
     }
 
     // Menampilkan detail ruangan
@@ -98,33 +136,86 @@ class RuanganController extends Controller
 
         $data = $request->all();
 
-        // Hapus foto lama jika diminta
-        if ($request->has('remove_photo') && $ruangan->photo) {
-            Storage::disk('public')->delete($ruangan->photo);
-            $data['photo'] = null;
-        }
+        // make a put request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        // Upload foto baru jika ada
-        if ($request->hasFile('photo')) {
-            if ($ruangan->photo) {
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/ruangans/' . $ruangan->code, [
+            [
+            'name'     => 'code',
+            'contents' => $request->input('code')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'capacity',
+            'contents' => $request->input('capacity')
+            ],
+            [
+            'name'     => 'category',
+            'contents' => $request->input('category')
+            ],
+            [
+            'name'     => 'tempat_name',
+            'contents' => Tempat::find($request->input('tempat_id'))->name
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Hapus foto lama jika diminta
+            if ($request->has('remove_photo') && $ruangan->photo) {
                 Storage::disk('public')->delete($ruangan->photo);
+                $data['photo'] = null;
             }
-            $data['photo'] = $request->file('photo')->store('photos/ruangan', 'public');
-        }
 
-        $ruangan->update($data);
-        return redirect()->route('ruangan .index')->with('success', 'Ruangan berhasil diperbarui.');
+            // Upload foto baru jika ada
+            if ($request->hasFile('photo')) {
+                if ($ruangan->photo) {
+                    Storage::disk('public')->delete($ruangan->photo);
+                }
+                $data['photo'] = $request->file('photo')->store('photos/ruangan', 'public');
+            }
+
+            $ruangan->update($data);
+
+            return redirect()->route('ruangan.index')->with('success', 'Ruangan berhasil diperbarui.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal memperbarui ruangan. Silakan coba lagi.');
+        }
     }
 
     // Menghapus ruangan
     public function destroy(Ruangan $ruangan)
     {
-        if ($ruangan->photo) {
-            Storage::disk('public')->delete($ruangan->photo);
-        }
+        // make a delete request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        $ruangan->delete();
-        return redirect()->route('ruangan.index')->with('success', 'Ruangan berhasil dihapus.');
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/ruangans/' . $ruangan->code);
+
+        if ($response->successful()) {
+            if ($ruangan->photo) {
+            Storage::disk('public')->delete($ruangan->photo);
+            }
+
+            // Hapus data ruangan
+            $ruangan->delete();
+
+            return redirect()->route('ruangan.index')->with('success', 'Ruangan berhasil dihapus.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menghapus ruangan. Silakan coba lagi.');
+        }
     }
 
     public function bulkDelete(Request $request)
@@ -134,8 +225,29 @@ class RuanganController extends Controller
             return response()->json(['success' => false, 'message' => 'Tidak ada data yang dipilih.']);
         }
 
-        Ruangan::whereIn('id', $ids)->delete();
-        return response()->json(['success' => true]);
+        $ruangans = Ruangan::whereIn('id', $ids)->get();
+        $codes = $ruangans->pluck('code')->toArray();
+
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/ruangans/bulk', [
+            'codes' => $codes
+        ]);
+
+        if ($response->successful()) {
+            foreach ($ruangans as $ruangan) {
+            if ($ruangan->photo) {
+                Storage::disk('public')->delete($ruangan->photo);
+            }
+            $ruangan->delete();
+            }
+            return response()->json(['success' => true]);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus ruangan secara bulk.']);
+        }
     }
 
     public function downloadPDF()
@@ -167,7 +279,6 @@ class RuanganController extends Controller
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
         }
     }
-
 
     public function showImportForm()
     {
