@@ -7,6 +7,7 @@ use App\Models\Ruangan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use App\Exports\BarangExport; // Pastikan Anda memiliki kelas BarangExport
@@ -65,14 +66,55 @@ class BarangController extends Controller
         $data = $request->all();
         $data['warranty'] = Carbon::createFromFormat('d-m-Y', $request->warranty)->format('Y-m-d');
 
-        // Menangani upload foto
-        if ($request->hasFile('photo')) {
+        // make a post request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/barangs', [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'code',
+            'contents' => $request->input('code')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'condition',
+            'contents' => $request->input('condition')
+            ],
+            [
+            'name'     => 'warranty',
+            'contents' => $request->input('warranty')
+            ],
+            [
+            'name'     => 'ruangan_code',
+            'contents' => Ruangan::find($request->input('ruangan_id'))->code
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
             $data['photo'] = $request->file('photo')->store('photos/barang', 'public');
+            }
+
+            Barang::create($data);
+            return redirect()->route('barang.index')->with('success', 'Barang berhasil ditambahkan.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menambahkan barang. Silakan coba lagi.');
         }
-
-        Barang::create($data);
-
-        return redirect()->route('barang.index')->with('success', 'Barang berhasil ditambahkan.');
     }
 
     // Menampilkan form untuk mengedit barang
@@ -99,34 +141,88 @@ class BarangController extends Controller
         $data = $request->all();
         $data['warranty'] = Carbon::createFromFormat('d-m-Y', $request->warranty)->format('Y-m-d');
 
-        // Hapus foto lama jika diminta
-        if ($request->has('remove_photo') && $barang->photo) {
+        // make a put request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/barangs/' . $barang->code, [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'code',
+            'contents' => $request->input('code')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'condition',
+            'contents' => $request->input('condition')
+            ],
+            [
+            'name'     => 'warranty',
+            'contents' => $request->input('warranty')
+            ],
+            [
+            'name'     => 'ruangan_code',
+            'contents' => Ruangan::find($request->input('ruangan_id'))->code
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Hapus foto lama jika diminta
+            if ($request->has('remove_photo') && $barang->photo) {
             Storage::disk('public')->delete($barang->photo);
             $data['photo'] = null;
-        }
+            }
 
-        // Upload foto baru jika ada
-        if ($request->hasFile('photo')) {
+            // Upload foto baru jika ada
+            if ($request->hasFile('photo')) {
             if ($barang->photo) {
                 Storage::disk('public')->delete($barang->photo);
             }
             $data['photo'] = $request->file('photo')->store('photos/barang', 'public');
+            }
+
+            $barang->update($data);
+
+            return redirect()->route('barang.index')->with('success', 'Barang berhasil diperbarui.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal memperbarui barang. Silakan coba lagi.');
         }
-
-        $barang->update($data);
-
-        return redirect()->route('barang.index')->with('success', 'Barang berhasil diperbarui.');
     }
 
     // Menghapus barang
     public function destroy(Barang $barang)
     {
-        if ($barang->photo) {
-            Storage::disk('public')->delete($barang->photo);
-        }
+        // make a delete request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        $barang->delete();
-        return redirect()->route('barang.index')->with('success', 'Barang berhasil dihapus.');
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/barangs/' . $barang->code);
+
+        if ($response->successful()) {
+            if ($barang->photo) {
+            Storage::disk('public')->delete($barang->photo);
+            }
+
+            $barang->delete();
+            return redirect()->route('barang.index')->with('success', 'Barang berhasil dihapus.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menghapus barang. Silakan coba lagi.');
+        }
     }
 
     // Mengambil detail barang untuk modal
@@ -139,14 +235,33 @@ class BarangController extends Controller
     public function bulkDelete(Request $request)
     {
         $ids = $request->input('ids');
-
         if (empty($ids)) {
             return response()->json(['success' => false, 'message' => 'Tidak ada data yang dipilih.']);
         }
 
-        Barang::whereIn('id', $ids)->delete();
+        $barangs = Barang::whereIn('id', $ids)->get();
+        $codes = $barangs->pluck('code')->toArray();
 
-        return response()->json(['success' => true, 'message' => 'Data barang berhasil dihapus.']);
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/barangs/bulk', [
+            'codes' => $codes
+        ]);
+
+        if ($response->successful()) {
+            foreach ($barangs as $barang) {
+            if ($barang->photo) {
+                Storage::disk('public')->delete($barang->photo);
+            }
+            $barang->delete();
+            }
+            return response()->json(['success' => true]);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus barang secara bulk.']);
+        }
     }
 
     public function downloadPDF()
@@ -179,7 +294,6 @@ class BarangController extends Controller
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
         }
     }
-
 
     public function showImportForm()
     {
