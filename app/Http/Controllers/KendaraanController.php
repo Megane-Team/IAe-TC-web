@@ -7,6 +7,7 @@ use App\Models\Tempat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\KendaraanExport; // Pastikan Anda memiliki kelas KendaraanExport
 use Maatwebsite\Excel\Facades\Excel;
@@ -71,15 +72,71 @@ class KendaraanController extends Controller
         $data['warranty'] = Carbon::createFromFormat('d-m-Y', $request->warranty)->format('Y-m-d');
         $data['tax'] = $request->tax ? Carbon::createFromFormat('d-m-Y', $request->tax)->format('Y-m-d') : null;
 
-        if ($request->hasFile('photo')) {
+        // make a post request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/kendaraans', [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'plat',
+            'contents' => $request->input('plat')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'condition',
+            'contents' => $request->input('condition')
+            ],
+            [
+            'name'     => 'warranty',
+            'contents' => $request->input('warranty')
+            ],
+            [
+            'name'     => 'capacity',
+            'contents' => $request->input('capacity')
+            ],
+            [
+            'name'     => 'category',
+            'contents' => $request->input('category')
+            ],
+            [
+            'name'     => 'color',
+            'contents' => $request->input('color')
+            ],
+            [
+            'name'     => 'tempat_name',
+            'contents' => Tempat::find($request->input('tempat_id'))->name
+            ],
+            [
+            'name'     => 'tax',
+            'contents' => $request->input('tax')
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
             $data['photo'] = $request->file('photo')->store('photos/kendaraan', 'public');
+            }
+
+            Kendaraan::create($data);
+            return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil ditambahkan.');
         } else {
-            $data['photo'] = null; // Set foto menjadi null jika tidak ada file yang diunggah
+            return redirect()->back()->with('error', 'Gagal menambahkan kendaraan. Silakan coba lagi.');
         }
-
-        Kendaraan::create($data);
-
-        return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil ditambahkan.');
     }
 
     // Menampilkan form untuk mengedit kendaraan
@@ -111,32 +168,104 @@ class KendaraanController extends Controller
         $data['warranty'] = Carbon::createFromFormat('d-m-Y', $request->warranty)->format('Y-m-d');
         $data['tax'] = $request->tax ? Carbon::createFromFormat('d-m-Y', $request->tax)->format('Y-m-d') : null;
 
-        if ($request->has('remove_photo') && $kendaraan->photo) {
+        // make a put request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/kendaraans/' . $kendaraan->plat, [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'plat',
+            'contents' => $request->input('plat')
+            ],
+            [
+            'name'     => 'status',
+            'contents' => $request->input('status')
+            ],
+            [
+            'name'     => 'condition',
+            'contents' => $request->input('condition')
+            ],
+            [
+            'name'     => 'warranty',
+            'contents' => $request->input('warranty')
+            ],
+            [
+            'name'     => 'capacity',
+            'contents' => $request->input('capacity')
+            ],
+            [
+            'name'     => 'category',
+            'contents' => $request->input('category')
+            ],
+            [
+            'name'     => 'color',
+            'contents' => $request->input('color')
+            ],
+            [
+            'name'     => 'tempat_name',
+            'contents' => Tempat::find($request->input('tempat_id'))->name
+            ],
+            [
+            'name'     => 'tax',
+            'contents' => $request->input('tax')
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Hapus foto lama jika diminta
+            if ($request->has('remove_photo') && $kendaraan->photo) {
             Storage::disk('public')->delete($kendaraan->photo);
             $data['photo'] = null;
-        }
+            }
 
-        if ($request->hasFile('photo')) {
+            // Upload foto baru jika ada
+            if ($request->hasFile('photo')) {
             if ($kendaraan->photo) {
-                Storage::disk('public')->delete($kendaraan->photo);
+            Storage::disk('public')->delete($kendaraan->photo);
             }
             $data['photo'] = $request->file('photo')->store('photos/kendaraan', 'public');
+            }
+
+            $kendaraan->update($data);
+
+            return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil diperbarui.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal memperbarui kendaraan. Silakan coba lagi.');
         }
-
-        $kendaraan->update($data);
-
-        return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil diperbarui.');
     }
 
     // Menghapus kendaraan
     public function destroy(Kendaraan $kendaraan)
     {
-        if ($kendaraan->photo) {
-            Storage::disk('public')->delete($kendaraan->photo);
-        }
+        // make a delete request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        $kendaraan->delete();
-        return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil dihapus.');
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/kendaraans/' . $kendaraan->plat);
+
+        if ($response->successful()) {
+            if ($kendaraan->photo) {
+            Storage::disk('public')->delete($kendaraan->photo);
+            }
+
+            $kendaraan->delete();
+            return redirect()->route('kendaraan.index')->with('success', 'Kendaraan berhasil dihapus.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menghapus kendaraan. Silakan coba lagi.');
+        }
     }
 
     // Mengambil detail kendaraan
@@ -150,14 +279,33 @@ class KendaraanController extends Controller
     public function bulkDelete(Request $request)
     {
         $ids = $request->input('ids');
-
         if (empty($ids)) {
             return response()->json(['success' => false, 'message' => 'Tidak ada data yang dipilih.']);
         }
 
-        Kendaraan::whereIn('id', $ids)->delete();
+        $kendaraans = Kendaraan::whereIn('id', $ids)->get();
+        $plats = $kendaraans->pluck('plat')->toArray();
 
-        return response()->json(['success' => true, 'message' => 'Data kendaraan berhasil dihapus.']);
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/kendaraans/bulk', [
+            'plats' => $plats
+        ]);
+
+        if ($response->successful()) {
+            foreach ($kendaraans as $kendaraan) {
+            if ($kendaraan->photo) {
+                Storage::disk('public')->delete($kendaraan->photo);
+            }
+            $kendaraan->delete();
+            }
+            return response()->json(['success' => true]);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus kendaraan secara bulk.']);
+        }
     }
 
     public function downloadPDF()
