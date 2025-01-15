@@ -42,7 +42,7 @@
             <div class="login-content">
                 <div class="login-userset">
                     <div class="login-logo">
-                        <img src="{{ asset('assets/img/logo.png') }}" alt="Logo">
+                        <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" style="height: 100px;">
                     </div>
                     <div class="login-userheading">
                         <h3>Sign In</h3>
@@ -117,6 +117,7 @@
                         }).catch((err) => {
                             console.log('An error occurred while retrieving token. ', err);
                             alert('Error saat mengambil data, tolong refresh halaman ini!.');
+                            window.location.reload();
                         });
                     } else if (permission === 'denied') {
                         console.log('Notification permission denied.');
