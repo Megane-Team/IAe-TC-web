@@ -217,15 +217,6 @@ class TempatController extends Controller
         } else {
             return response()->json(['success' => false, 'message' => 'Gagal menghapus tempat secara bulk.']);
         }
-
-        // foreach ($tempats as $tempat) {
-        //     if ($tempat->photo) {
-        //         Storage::disk('public')->delete($tempat->photo);
-        //     }
-        //     $tempat->delete();
-        // }
-
-        // return response()->json(['success' => true]);
     }
 
     public function downloadPDF()

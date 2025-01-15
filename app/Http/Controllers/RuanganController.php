@@ -270,13 +270,29 @@ class RuanganController extends Controller
             'file' => 'required|mimes:xlsx,xls'
         ]);
 
-        try {
-            $file = $request->file('file'); // Ambil file dari request
-            Excel::import(new RuanganImport($file), $file); // Berikan file ke konstruktor RuanganImport
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/ruangans/import', [
+            [
+            'name'     => 'file',
+            'contents' => fopen($request->file('file')->getPathname(), 'r'),
+            'filename' => $request->file('file')->getClientOriginalName()
+            ]
+        ]);
+
+        if ($response->successful()) {
+            try {
+            Excel::import(new RuanganImport($request->file('file')), $request->file('file'));
             return redirect()->route('ruangan.index')->with('success', 'Data berhasil diimpor.');
-        } catch (\Exception $e) {
+            } catch (\Exception $e) {
             Log::error('Kesalahan saat mengimpor data Ruangan:', ['error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
+            }
+        } else {
+            return redirect()->back()->with('error', 'Gagal mengimpor data melalui API. Silakan coba lagi.');
         }
     }
 
