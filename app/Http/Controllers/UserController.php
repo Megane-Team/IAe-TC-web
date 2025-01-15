@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\UserExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -54,15 +55,63 @@ class UserController extends Controller
         $data = $request->all();
         $data['password'] = Hash::make($request->password);
 
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
-            $photoName = $request->name . '.' . $request->file('photo')->getClientOriginalExtension();
-            $data['photo'] = $request->file('photo')->storeAs('photos/users', $photoName, 'public');
+        // make a post request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/users', [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'email',
+            'contents' => $request->input('email')
+            ],
+            [
+            'name'     => 'nik',
+            'contents' => $request->input('nik')
+            ],
+            [
+            'name'     => 'role',
+            'contents' => $request->input('role')
+            ],
+            [
+            'name'     => 'unit',
+            'contents' => $request->input('unit')
+            ],
+            [
+            'name'     => 'address',
+            'contents' => $request->input('address')
+            ],
+            [
+            'name'     => 'phoneNumber',
+            'contents' => $request->input('phoneNumber')
+            ],
+            [
+            'name'     => 'password',
+            'contents' => $request->input('password')
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
+            $data['photo'] = $request->file('photo')->store('photos/users', 'public');
+            }
+
+            User::create($data);
+            return redirect()->route('user.index')->with('success', 'Pengguna berhasil ditambahkan.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menambahkan pengguna. Silakan coba lagi.');
         }
-
-        User::create($data);
-
-        return redirect()->route('user.index')->with('success', 'Pengguna berhasil ditambahkan.');
     }
 
     // Menampilkan detail pengguna
@@ -88,44 +137,113 @@ class UserController extends Controller
             'unit' => 'nullable|string|max:50',
             'address' => 'nullable|string|max:150',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'password' => 'nullable|string|min:8|confirmed',
+            'remove_photo' => 'nullable|boolean',
+            'phoneNumber' => 'nullable|string|max:50',
+            'password' => 'nullable|string|min:8',
         ]);
 
         $data = $request->all();
 
-        // Hapus foto lama jika diminta
-        if ($request->has('remove_photo') && $user->photo) {
+        // make a put request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/users/' . $user->nik, [
+            [
+            'name'     => 'name',
+            'contents' => $request->input('name')
+            ],
+            [
+            'name'     => 'email',
+            'contents' => $request->input('email')
+            ],
+            [
+            'name'     => 'nik',
+            'contents' => $request->input('nik')
+            ],
+            [
+            'name'     => 'role',
+            'contents' => $request->input('role')
+            ],
+            [
+            'name'     => 'unit',
+            'contents' => $request->input('unit')
+            ],
+            [
+            'name'     => 'address',
+            'contents' => $request->input('address')
+            ],
+            [
+            'name'     => 'phoneNumber',
+            'contents' => $request->input('phoneNumber')
+            ],
+            [
+            'name'     => 'password',
+            'contents' => $request->input('password')
+            ],
+            [
+            'name'     => 'photo',
+            'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+            'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Hapus foto lama jika diminta
+            if ($request->has('remove_photo') && $user->photo) {
             Storage::disk('public')->delete($user->photo);
             $data['photo'] = null;
-        }
+            }
 
-        // Upload foto baru jika ada
-        if ($request->hasFile('photo')) {
+            // Upload foto baru jika ada
+            if ($request->hasFile('photo')) {
             if ($user->photo) {
                 Storage::disk('public')->delete($user->photo);
             }
             $data['photo'] = $request->file('photo')->store('photos/users', 'public');
+            }
+
+            foreach ($data as $key => $value) {
+                if (is_null($value) && isset($user->$key)) {
+                    $data[$key] = $user->$key;
+                }
+            }
+
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            }
+
+            $user->update($data);
+
+            return redirect()->route('user.index')->with('success', 'Pengguna berhasil diperbarui.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal memperbarui pengguna. Silakan coba lagi.');
         }
-
-        // Update password jika diisi
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
-
-        $user->update($data);
-
-        return redirect()->route('user.index')->with('success', 'Pengguna berhasil diperbarui.');
     }
 
     // Menghapus pengguna
     public function destroy(User $user)
     {
-        if ($user->photo) {
-            Storage::disk('public')->delete($user->photo);
-        }
-        $user->delete();
+        // make a delete request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        return redirect()->route('user.index')->with('success', 'Pengguna berhasil dihapus.');
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/users/' . $user->nik);
+
+        if ($response->successful()) {
+            if ($user->photo) {
+            Storage::disk('public')->delete($user->photo);
+            }
+
+            $user->delete();
+            return redirect()->route('user.index')->with('success', 'Pengguna berhasil dihapus.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menghapus pengguna. Silakan coba lagi.');
+        }
     }
 
     public function bulkDelete(Request $request)
@@ -135,8 +253,29 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => 'Tidak ada data yang dipilih.']);
         }
 
-        User::whereIn('id', $ids)->delete();
-        return response()->json(['success' => true]);
+        $users = User::whereIn('id', $ids)->get();
+        $niks = $users->pluck('nik')->toArray();
+
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/users/bulk', [
+            'niks' => $niks
+        ]);
+
+        if ($response->successful()) {
+            foreach ($users as $user) {
+            if ($user->photo) {
+                Storage::disk('public')->delete($user->photo);
+            }
+            $user->delete();
+            }
+            return response()->json(['success' => true]);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus pengguna secara bulk.']);
+        }
     }
 
     public function downloadPDF()
