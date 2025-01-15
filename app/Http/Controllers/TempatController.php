@@ -217,6 +217,15 @@ class TempatController extends Controller
         } else {
             return response()->json(['success' => false, 'message' => 'Gagal menghapus tempat secara bulk.']);
         }
+
+        // foreach ($tempats as $tempat) {
+        //     if ($tempat->photo) {
+        //         Storage::disk('public')->delete($tempat->photo);
+        //     }
+        //     $tempat->delete();
+        // }
+
+        // return response()->json(['success' => true]);
     }
 
     public function downloadPDF()
@@ -240,12 +249,29 @@ class TempatController extends Controller
             'file' => 'required|mimes:xlsx,xls'
         ]);
 
-        try {
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/tempats/import', [
+            [
+            'name'     => 'file',
+            'contents' => fopen($request->file('file')->getPathname(), 'r'),
+            'filename' => $request->file('file')->getClientOriginalName()
+            ]
+        ]);
+
+        if ($response->successful()) {
+            try {
             Excel::import(new TempatImport($request->file('file')), $request->file('file'));
             return redirect()->route('tempat.index')->with('success', 'Data berhasil diimpor.');
-        } catch (\Exception $e) {
+            } catch (\Exception $e) {
             Log::error('Kesalahan saat mengimpor data Tempat:', ['error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
+            }
+        } else {
+            return redirect()->back()->with('error', 'Gagal mengimpor data melalui API. Silakan coba lagi.');
         }
     }
 
