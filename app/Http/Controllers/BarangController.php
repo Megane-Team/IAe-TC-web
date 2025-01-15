@@ -285,10 +285,61 @@ class BarangController extends Controller
             'file' => 'required|mimes:xlsx,xls'
         ]);
 
-        try {
+        try{
             $file = $request->file('file'); // Ambil file dari request
-            Excel::import(new BarangImport($file), $file); // Berikan file ke konstruktor BarangImport
-            return redirect()->route('barang.index')->with('success', 'Data berhasil diimpor.');
+
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $worksheet = $spreadsheet->getActiveSheet();
+
+            foreach ($worksheet->getRowIterator() as $row) {
+                $cellIterator = $row->getCellIterator();
+                $cellIterator->setIterateOnlyExistingCells(false);
+
+                foreach ($cellIterator as $cell) {
+                    if ($cell->getColumn() == 'B' && empty($cell->getValue())) {
+                        $cell->setValue(\Illuminate\Support\Str::uuid());
+                    }
+                }
+            }
+
+            $tempFilePath = tempnam(sys_get_temp_dir(), 'import');
+            $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+            $writer->save($tempFilePath);
+
+            $file = new \Illuminate\Http\UploadedFile(
+                $tempFilePath,
+                'imported_file.xlsx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                null,
+                true
+            );
+
+            $apiUrl = config('app.api_url');
+            $apiToken = session('api_token');
+
+            $response = Http::asMultipart()->withHeaders([
+                'Authorization' => 'Bearer ' . $apiToken,
+            ])->post($apiUrl . '/barangs/import', [
+                [
+                'name'     => 'file',
+                'contents' => fopen($file->getPathname(), 'r'),
+                'filename' => $file->getClientOriginalName()
+                ]
+            ]);
+
+            if ($response->successful()) {
+                try {
+                    Excel::import(new BarangImport($file), $tempFilePath);
+            
+                    unlink($tempFilePath);
+                    return redirect()->route('barang.index')->with('success', 'Data berhasil diimpor.');
+                } catch (\Exception $e) {
+                    Log::error('Kesalahan saat mengimpor data Barang:', ['error' => $e->getMessage()]);
+                    return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
+                }
+            } else {
+                return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan coba lagi.');
+            }
         } catch (\Exception $e) {
             Log::error('Kesalahan saat mengimpor data Barang:', ['error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');

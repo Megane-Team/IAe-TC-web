@@ -55,7 +55,7 @@
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Kode Barang</span>
-                                        <span class="badge bg-success text-white">Wajib</span>
+                                        <span class="badge bg-info text-white">Opsional</span>
                                     </li>
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>Status</span>
