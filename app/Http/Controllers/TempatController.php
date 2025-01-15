@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\TempatExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\TempatImport;
+use Illuminate\Support\Facades\Http;
 
 
 class TempatController extends Controller
@@ -57,13 +58,41 @@ class TempatController extends Controller
 
         $data = $request->all();
 
-        // Handle photo upload
-        if ($request->hasFile('photo')) {
-            $data['photo'] = $request->file('photo')->store('photos/tempat', 'public');
-        }
+        // make a post request to the api
+        $apiUrl = config('app.api_url');
 
-        Tempat::create($data);
-        return redirect()->route('tempat.index')->with('success', 'Tempat berhasil ditambahkan.');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/tempats', [
+            [
+                'name'     => 'name',
+                'contents' => $request->input('name')
+            ],
+            [
+                'name'     => 'category',
+                'contents' => $request->input('category')
+            ],
+            [
+                'name'     => 'photo',
+                'contents' => fopen($request->file('photo')->getPathname(), 'r'),
+                'filename' => $request->file('photo')->getClientOriginalName()
+            ]
+        ]);
+
+        if ($response->successful()) {
+            // Handle photo upload
+            if ($request->hasFile('photo')) {
+                $data['photo'] = $request->file('photo')->store('photos/tempat', 'public');
+            }
+
+            Tempat::create($data);
+            return redirect()->route('tempat.index')->with('success', 'Tempat berhasil ditambahkan.');
+        } else {
+
+            return redirect()->back()->with('error', 'Gagal menambahkan tempat. Silakan coba lagi.');
+        }
     }
 
     // Menampilkan detail tempat
@@ -89,36 +118,73 @@ class TempatController extends Controller
 
         $data = $request->all();
 
-        // Hapus foto lama jika diminta
-        if ($request->has('remove_photo') && $tempat->photo) {
-            Storage::disk('public')->delete($tempat->photo);
-            $data['photo'] = null;
-        }
+        // make a put request to the api
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        // Upload foto baru jika ada
-        if ($request->hasFile('photo')) {
-            if ($tempat->photo) {
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/tempats/' . $tempat->name, [
+            [
+                'name'     => 'name',
+                'contents' => $request->input('name')
+            ],
+            [
+                'name'     => 'category',
+                'contents' => $request->input('category')
+            ],
+            [
+                'name'     => 'photo',
+                'contents' => $request->hasFile('photo') ? fopen($request->file('photo')->getPathname(), 'r') : null,
+                'filename' => $request->hasFile('photo') ? $request->file('photo')->getClientOriginalName() : null
+            ]
+        ]);
+
+        if ($response->successful()) {
+             // Hapus foto lama jika diminta
+            if ($request->has('remove_photo') && $tempat->photo) {
                 Storage::disk('public')->delete($tempat->photo);
+                $data['photo'] = null;
             }
-            $data['photo'] = $request->file('photo')->store('photos/tempat', 'public');
+
+            // Upload foto baru jika ada
+            if ($request->hasFile('photo')) {
+                if ($tempat->photo) {
+                    Storage::disk('public')->delete($tempat->photo);
+                }
+                $data['photo'] = $request->file('photo')->store('photos/tempat', 'public');
+            }
+
+            $tempat->update($data);
+
+            return redirect()->route('tempat.index')->with('success', 'Tempat berhasil diperbarui.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal memperbarui tempat. Silakan coba lagi.');
         }
-
-        $tempat->update($data);
-
-        return redirect()->route('tempat.index')->with('success', 'Tempat berhasil diperbarui.');
     }
     public function destroy(Tempat $tempat)
     {
-        // Hapus foto dari penyimpanan jika ada
-        if ($tempat->photo) {
-            Log::info('Menghapus foto tempat dengan path: ' . $tempat->photo);
-            Storage::disk('public')->delete($tempat->photo);
+        // make a delete request to the api
+        $apiUrl = config('app.api_url');
+
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/tempats/' . $tempat->name);
+
+        if ($response->successful()) {
+            if ($tempat->photo) {
+                Storage::disk('public')->delete($tempat->photo);
+            }
+    
+            // Hapus data tempat
+            $tempat->delete();
+    
+            return redirect()->route('tempat.index')->with('success', 'Tempat berhasil dihapus.');
+        } else {
+            return redirect()->back()->with('error', 'Gagal menghapus tempat. Silakan coba lagi.');
         }
-
-        // Hapus data tempat
-        $tempat->delete();
-
-        return redirect()->route('tempat.index')->with('success', 'Tempat berhasil dihapus.');
     }
 
     public function bulkDelete(Request $request)
@@ -128,8 +194,29 @@ class TempatController extends Controller
             return response()->json(['success' => false, 'message' => 'Tidak ada data yang dipilih.']);
         }
 
-        Tempat::whereIn('id', $ids)->delete();
-        return response()->json(['success' => true]);
+        $tempats = Tempat::whereIn('id', $ids)->get();
+        $names = $tempats->pluck('name')->toArray();
+
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->delete($apiUrl . '/tempats/bulk', [
+            'names' => $names
+        ]);
+
+        if ($response->successful()) {
+            foreach ($tempats as $tempat) {
+            if ($tempat->photo) {
+                Storage::disk('public')->delete($tempat->photo);
+            }
+            $tempat->delete();
+            }
+            return response()->json(['success' => true]);
+        } else {
+            return response()->json(['success' => false, 'message' => 'Gagal menghapus tempat secara bulk.']);
+        }
     }
 
     public function downloadPDF()
@@ -161,7 +248,6 @@ class TempatController extends Controller
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
         }
     }
-
 
     public function showImportForm()
     {
