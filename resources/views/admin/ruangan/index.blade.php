@@ -153,7 +153,7 @@
                                             <img src="{{ asset('assets/img/icons/edit.svg') }}" alt="Edit">
                                         </a>
                                         <a class="me-3" href="javascript:void(0);" data-id="{{ $ruangan->id }}"
-                                            onclick="confirmDelete({{ $ruangan->id }})">
+                                            onclick="confirmDelete('{{ $ruangan->id }}')">
                                             <img src="{{ asset('assets/img/icons/delete.svg') }}" alt="Delete">
                                         </a>
                                         <form id="delete-form-{{ $ruangan->id }}"
@@ -206,7 +206,7 @@
         }
 
         if (confirm('Apakah Anda yakin ingin menghapus data yang dipilih?')) {
-            fetch('{{ route('ruangan.bulkDelete') }}', {
+            fetch("{{ route('ruangan.bulkDelete') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
