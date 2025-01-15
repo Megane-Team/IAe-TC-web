@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\View\View;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Fascades\Log;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -26,9 +26,6 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // make a log about the request
-        Log::info('Request: ' . $request);
-
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
@@ -36,19 +33,10 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         $credentials = $request->only('email', 'password');
-        // make a log for credentials
-        Log::info('Credentials: ' . json_encode($credentials));
-        
         $fcmToken = $request->input('fcm_token');
-        // make a log for fcmToken
-        Log::info('FCM Token: ' . $fcmToken);
 
         if (Auth::attempt($credentials)) {
-            Log::info('auth accepted');
-
             $apiUrl = config('app.api_url');
-            // make a log for apiUrl
-            Log::info('API URL: ' . $apiUrl . '/users/login');
 
             $response = Http::withHeaders([
                 'Content-Type' => 'application/json',
@@ -60,14 +48,17 @@ class AuthenticatedSessionController extends Controller
 
             if ($response->successful()) {
                 $user = Auth::user();
+                $token = $response->json('token'); // Assuming the token is in the 'token' field of the response
+
+                // Store the token in the session
+                session(['api_token' => $token]);
+
                 if ($user->role == 'admin') {
                     return redirect(route('admin.dashboard'));
                 } elseif ($user->role == 'headOffice') {
                     return redirect(route('headoffice.dashboard'));
                 }
             } else {
-                Log::info('auth not accepted');
-
                 return redirect()->route('login')->withErrors([
                     'email' => 'Email atau password salah'
                 ]);
