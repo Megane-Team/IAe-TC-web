@@ -326,16 +326,32 @@ class KendaraanController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls', // Validasi hanya menerima file Excel
+            'file' => 'required|mimes:xlsx,xls'
         ]);
 
-        try {
-            $file = $request->file('file'); // Ambil file dari request
-            Excel::import(new KendaraanImport($file), $file); // Berikan file ke konstruktor KendaraanImport
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::asMultipart()->withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->post($apiUrl . '/kendaraans/import', [
+            [
+            'name'     => 'file',
+            'contents' => fopen($request->file('file')->getPathname(), 'r'),
+            'filename' => $request->file('file')->getClientOriginalName()
+            ]
+        ]);
+
+        if ($response->successful()) {
+            try {
+            Excel::import(new KendaraanImport($request->file('file')), $request->file('file'));
             return redirect()->route('kendaraan.index')->with('success', 'Data berhasil diimpor.');
-        } catch (\Exception $e) {
+            } catch (\Exception $e) {
             Log::error('Kesalahan saat mengimpor data Kendaraan:', ['error' => $e->getMessage()]);
             return redirect()->back()->with('error', 'Gagal mengimpor data. Silakan periksa format file.');
+            }
+        } else {
+            return redirect()->back()->with('error', 'Gagal mengimpor data melalui API. Silakan coba lagi.');
         }
     }
 
