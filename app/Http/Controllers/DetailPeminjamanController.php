@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DetailPeminjamanExport;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
 class DetailPeminjamanController extends Controller
@@ -54,12 +53,26 @@ class DetailPeminjamanController extends Controller
             'canceledReason' => 'required|string',
         ]);
 
-        $detailpeminjaman->update([
-            'status' => 'rejected',
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/detailPeminjaman/rejected', [
+            'id' => $detailpeminjaman->id,
             'canceledReason' => $request->canceledReason,
         ]);
 
-        return redirect()->route('detailpeminjaman.index')->with('success', 'Status berhasil diubah menjadi Rejected.');
+        if ($response->successful()) {
+            $detailpeminjaman->update([
+            'status' => 'rejected',
+            'canceledReason' => $request->canceledReason,
+            ]);
+
+            return redirect()->route('detailpeminjaman.index')->with('success', 'Status berhasil diubah menjadi Rejected.');
+        } else {
+            return redirect()->route('detailpeminjaman.index')->with('error', 'Gagal mengubah status menjadi Rejected.');
+        }
     }
 
     // Mengambil detail peminjaman untuk modal
