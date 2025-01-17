@@ -8,6 +8,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DetailPeminjamanExport;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Http;
 
 class DetailPeminjamanController extends Controller
 {
@@ -25,9 +26,21 @@ class DetailPeminjamanController extends Controller
 
     public function approve(DetailPeminjaman $detailpeminjaman)
     {
-        $detailpeminjaman->update(['status' => 'approved']);
+        $apiUrl = config('app.api_url');
+        $apiToken = session('api_token');
 
-        return redirect()->route('detailpeminjaman.index')->with('success', 'Status berhasil diubah menjadi Approved.');
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $apiToken,
+        ])->put($apiUrl . '/detailPeminjaman/approved', [
+            'id' => $detailpeminjaman->id,
+        ]);
+
+        if ($response->successful()) {
+            $detailpeminjaman->update(['status' => 'approved']);
+            return redirect()->route('detailpeminjaman.index')->with('success', 'Detail peminjaman berhasil disetujui.');
+        } else {
+            return redirect()->route('detailpeminjaman.index')->with('error', 'Gagal menyetujui detail peminjaman.');
+        }
     }
 
     public function rejectForm(DetailPeminjaman $detailpeminjaman)

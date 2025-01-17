@@ -100,7 +100,7 @@
                                         <button type="button" class="btn btn-rounded btn-outline-info"
                                             onclick="window.location.href='{{ route('detailpeminjaman.show', $detail->id) }}'">Lihat</button>
 
-                                        @if($detail->status === 'draft')
+                                        @if($detail->status === 'pending')
                                             <form action="{{ route('detailpeminjaman.approve', $detail->id) }}" method="POST"
                                                 style="display:inline;">
                                                 @csrf
