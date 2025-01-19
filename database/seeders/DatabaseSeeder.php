@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Http;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,11 +14,31 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $apiUrl = config('app.api_url');
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // make an post request to api/users
+        $response = Http::post($apiUrl . '/users/default', [
+            'name' => 'Admin',
+            'email' => 'admin@gmail.com',
+            'password' => 'password',
+            'role' => 'admin',
+            'nik' => '000000',
         ]);
+
+        if ($response->successful()) {
+            User::create([
+                'name' => 'Admin',
+                'email' => 'admin@gmail.com',
+                'password' => bcrypt('password'),
+                'role' => 'admin',
+                'nik' => '000000',
+            ]);
+    
+            echo 'User created successfully';
+            echo 'Email: admin@gmail.com';
+            echo 'Password: password';
+        } else {
+            echo 'Failed to create user or duplicate user';
+        }
     }
 }
