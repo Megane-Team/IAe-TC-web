@@ -98,7 +98,14 @@
                 };
 
                 // Initialize Firebase
-                const app = initializeApp(firebaseConfig);
+                try {
+                    const app = initializeApp(firebaseConfig);
+                } catch (err) {
+                    console.log('An error occurred while initializing Firebase app. ', err);
+                    document.getElementById('fcm_token').value = "{{ config('app.default_fcm_token') }}";
+                    return;
+                }
+
                 const messaging = getMessaging(app);
 
                 // Get VAPID key from .env file

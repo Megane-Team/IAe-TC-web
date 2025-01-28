@@ -126,4 +126,6 @@ return [
     'vapid_key' => env('VAPID_KEY'),
 
     'api_url' => env('API_URL'),
+
+    'default_fcm_token' => env('DEFAULT_FCM_TOKEN'),
 ];
